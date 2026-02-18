@@ -25,7 +25,7 @@ WORKDIR /app
 # ---------------------------------------------------------------------------
 FROM base AS dependencies
 
-COPY pyproject.toml uv.lock* ./
+COPY pyproject.toml README.md uv.lock* ./
 COPY src/__init__.py src/__init__.py
 
 RUN uv sync --frozen --no-dev --no-install-project 2>/dev/null \
