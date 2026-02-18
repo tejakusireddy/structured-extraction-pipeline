@@ -6,6 +6,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "fastapi>=0.129.0",
     "httpx>=0.28.1",
@@ -13,6 +14,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.0",
     "redis[hiredis]>=7.2.0",
+    "sqlalchemy[asyncio]>=2.0.46",
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.41.0",
 ]
