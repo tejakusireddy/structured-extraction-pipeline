@@ -5,15 +5,19 @@ any field via keyword arguments to create specific test scenarios
 without repeating boilerplate.
 """
 
+import os
 from collections.abc import AsyncIterator
 from datetime import date, datetime
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from src.api.app import create_app
 from src.core.config import Settings
+from src.models.database import Base
 from src.models.domain import (
     CitationType,
     CitedAuthority,
@@ -31,13 +35,18 @@ from src.models.domain import (
 # Settings / App / Client
 # ---------------------------------------------------------------------------
 
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5433/extraction_pipeline",
+)
+
 
 @pytest.fixture
 def test_settings() -> Settings:
     """Settings configured for testing — console logs, debug enabled."""
     return Settings(
         debug=True,
-        database_url="postgresql+asyncpg://postgres:postgres@localhost:5432/test_extraction",
+        database_url=TEST_DATABASE_URL,
         redis_url="redis://localhost:6379/1",
         log_format="console",
         log_level="DEBUG",
@@ -58,6 +67,36 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         base_url="http://test",
     ) as ac:
         yield ac
+
+
+# ---------------------------------------------------------------------------
+# Database fixtures — test Postgres via Docker
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def db_session() -> AsyncIterator[AsyncSession]:
+    """Per-test async session with automatic rollback for isolation.
+
+    Creates a fresh engine and connection per test. The connection-level
+    transaction is rolled back after the test, so no data persists.
+    Tables are created idempotently (checkfirst=True is the default).
+    """
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with engine.connect() as conn:
+        trans = await conn.begin()
+        session = AsyncSession(bind=conn, expire_on_commit=False)
+
+        yield session
+
+        await session.close()
+        await trans.rollback()
+
+    await engine.dispose()
 
 
 # ---------------------------------------------------------------------------

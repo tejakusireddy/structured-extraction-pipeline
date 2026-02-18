@@ -17,6 +17,7 @@ from src.api.middleware import RequestTracingMiddleware, register_exception_hand
 from src.api.routes import api_router
 from src.core.config import Settings
 from src.core.logging import setup_logging
+from src.db.session import create_engine, create_session_factory
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -25,9 +26,16 @@ logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage application startup and shutdown."""
     settings: Settings = app.state.settings
+
+    engine = create_engine(settings)
+    app.state.engine = engine
+    app.state.session_factory = create_session_factory(engine)
+
     logger.info("application_starting", version="0.1.0", debug=settings.debug)
     yield
     logger.info("application_shutting_down")
+
+    await engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
