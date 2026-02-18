@@ -241,6 +241,25 @@ class AuthorityGraphResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Ingestion
+# ---------------------------------------------------------------------------
+
+
+class IngestionProgressResponse(BaseModel):
+    """Progress report returned after an ingestion run."""
+
+    model_config = ConfigDict(frozen=True)
+
+    court_ids: list[str]
+    total_fetched: int = Field(..., ge=0)
+    total_stored: int = Field(..., ge=0)
+    total_skipped: int = Field(..., ge=0, description="Duplicates skipped via ON CONFLICT")
+    total_errors: int = Field(..., ge=0)
+    total_chunks: int = Field(..., ge=0)
+    elapsed_seconds: float = Field(..., ge=0.0)
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 

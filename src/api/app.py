@@ -18,6 +18,7 @@ from src.api.routes import api_router
 from src.core.config import Settings
 from src.core.logging import setup_logging
 from src.db.session import create_engine, create_session_factory
+from src.services.ingestion.courtlistener import CourtListenerClient
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -31,10 +32,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
 
+    cl_client = CourtListenerClient(settings)
+    app.state.cl_client = cl_client
+
     logger.info("application_starting", version="0.1.0", debug=settings.debug)
     yield
     logger.info("application_shutting_down")
 
+    await cl_client.close()
     await engine.dispose()
 
 

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import Settings
 from src.db.repositories import CitationRepo, ExtractionRepo, OpinionRepo
+from src.services.ingestion.courtlistener import CourtListenerClient
 
 
 @lru_cache(maxsize=1)
@@ -70,3 +71,9 @@ def get_citation_repo(
 ) -> CitationRepo:
     """Provide a CitationRepo bound to the current request session."""
     return CitationRepo(session)
+
+
+def get_courtlistener_client(request: Request) -> CourtListenerClient:
+    """Retrieve the shared CourtListener client from app state."""
+    client: CourtListenerClient = request.app.state.cl_client
+    return client
