@@ -15,6 +15,7 @@ from src.core.config import Settings
 from src.db.repositories import CitationRepo, ExtractionRepo, JobRepo, OpinionRepo
 from src.services.ingestion.courtlistener import CourtListenerClient
 from src.services.queue.worker import ExtractionWorker
+from src.services.search.vector_search import VectorSearchService
 
 
 @lru_cache(maxsize=1)
@@ -91,3 +92,9 @@ def get_extraction_worker(request: Request) -> ExtractionWorker:
     """Retrieve the shared ExtractionWorker from app state."""
     worker: ExtractionWorker = request.app.state.extraction_worker
     return worker
+
+
+def get_vector_search(request: Request) -> VectorSearchService:
+    """Retrieve the shared VectorSearchService from app state."""
+    svc: VectorSearchService = request.app.state.vector_search
+    return svc

@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
 from src.api.dependencies import get_settings
@@ -23,6 +24,8 @@ from src.services.extraction.extractor import ExtractionService
 from src.services.extraction.llm_client import LLMClient
 from src.services.ingestion.courtlistener import CourtListenerClient
 from src.services.queue.worker import ExtractionWorker
+from src.services.search.embeddings import EmbeddingService
+from src.services.search.vector_search import VectorSearchService
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -53,10 +56,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.extraction_worker = worker
 
+    embedding_service = EmbeddingService(settings)
+    qdrant = AsyncQdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+    vector_search = VectorSearchService(
+        qdrant=qdrant,
+        embedding_service=embedding_service,
+        collection_name=settings.qdrant_collection,
+        vector_size=settings.embedding_dimensions,
+    )
+    app.state.vector_search = vector_search
+    app.state.qdrant = qdrant
+
     logger.info("application_starting", version="0.1.0", debug=settings.debug)
     yield
     logger.info("application_shutting_down")
 
+    await qdrant.close()
     await redis.aclose()
     await cl_client.close()
     await engine.dispose()
