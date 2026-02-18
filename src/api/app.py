@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from redis.asyncio import Redis
 
 from src.api.dependencies import get_settings
 from src.api.middleware import RequestTracingMiddleware, register_exception_handlers
@@ -18,7 +19,10 @@ from src.api.routes import api_router
 from src.core.config import Settings
 from src.core.logging import setup_logging
 from src.db.session import create_engine, create_session_factory
+from src.services.extraction.extractor import ExtractionService
+from src.services.extraction.llm_client import LLMClient
 from src.services.ingestion.courtlistener import CourtListenerClient
+from src.services.queue.worker import ExtractionWorker
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -35,10 +39,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     cl_client = CourtListenerClient(settings)
     app.state.cl_client = cl_client
 
+    llm_client = LLMClient(settings)
+    extraction_service = ExtractionService(llm_client, settings)
+
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.redis = redis
+
+    session_factory = app.state.session_factory
+    worker = ExtractionWorker(
+        redis=redis,
+        extraction_service=extraction_service,
+        session_factory=session_factory,
+    )
+    app.state.extraction_worker = worker
+
     logger.info("application_starting", version="0.1.0", debug=settings.debug)
     yield
     logger.info("application_shutting_down")
 
+    await redis.aclose()
     await cl_client.close()
     await engine.dispose()
 

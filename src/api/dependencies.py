@@ -12,8 +12,9 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import Settings
-from src.db.repositories import CitationRepo, ExtractionRepo, OpinionRepo
+from src.db.repositories import CitationRepo, ExtractionRepo, JobRepo, OpinionRepo
 from src.services.ingestion.courtlistener import CourtListenerClient
+from src.services.queue.worker import ExtractionWorker
 
 
 @lru_cache(maxsize=1)
@@ -77,3 +78,16 @@ def get_courtlistener_client(request: Request) -> CourtListenerClient:
     """Retrieve the shared CourtListener client from app state."""
     client: CourtListenerClient = request.app.state.cl_client
     return client
+
+
+def get_job_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> JobRepo:
+    """Provide a JobRepo bound to the current request session."""
+    return JobRepo(session)
+
+
+def get_extraction_worker(request: Request) -> ExtractionWorker:
+    """Retrieve the shared ExtractionWorker from app state."""
+    worker: ExtractionWorker = request.app.state.extraction_worker
+    return worker
